@@ -535,18 +535,38 @@ def separator():
     service.append_component(component)
     return component
 
-def matplotlib_plot(fig):
+def matplotlib_plot(fig=None, title=None, description=None):
     """
-    Render a Matplotlib figure as a component.
+    Render a Matplotlib figure as a component with extensive debugging.
+    """
+    import sys
+    import traceback
+    import logging
 
-    Args:
-        fig: A Matplotlib figure object
-    """
+    # Configure logging
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.StreamHandler(sys.stdout),
+            logging.FileHandler('/tmp/preswald_matplotlib_debug.log', mode='a')
+        ]
+    )
+    logger = logging.getLogger(__name__)
+
     service = PreswaldService.get_instance()
+    
     try:
         import io
         import base64
         import matplotlib
+        import matplotlib.pyplot as plt
+
+        # Debug prints
+        logger.debug(f"matplotlib_plot called with:")
+        logger.debug(f"  Figure: {fig}")
+        logger.debug(f"  Title: {title}")
+        logger.debug(f"  Description: {description}")
 
         # Ensure we're using a non-interactive backend
         matplotlib.use('Agg')
@@ -555,18 +575,42 @@ def matplotlib_plot(fig):
         id = generate_id("matplotlib_plot")
         logger.debug(f"[MATPLOTLIB] Creating plot component with id {id}")
 
+        # If no figure is provided, create a default plot
+        if fig is None:
+            logger.warning("No figure provided. Creating default plot.")
+            fig = plt.figure(figsize=(8, 6))
+            plt.plot([1, 2, 3, 4], [1, 4, 2, 3])
+            plt.title('Default Plot')
+            plt.xlabel('X-axis')
+            plt.ylabel('Y-axis')
+
+        # Ensure fig is a matplotlib figure
+        if not hasattr(fig, 'savefig'):
+            logger.error("Invalid figure object. Must be a matplotlib Figure.")
+            raise ValueError("Invalid figure object. Must be a matplotlib Figure.")
+
         # Create a BytesIO buffer to save the figure
         buffer = io.BytesIO()
         
         # Save the figure as PNG
-        fig.savefig(buffer, format='png', bbox_inches='tight', dpi=300)
+        try:
+            logger.info("Attempting to save figure to buffer")
+            fig.savefig(buffer, format='png', bbox_inches='tight', dpi=300)
+            logger.info("Figure saved successfully")
+        except Exception as save_error:
+            logger.error(f"Error saving figure: {save_error}")
+            logger.error(traceback.format_exc())
+            raise
+
         buffer.seek(0)
         
         # Encode the image to base64
+        logger.info("Encoding image to base64")
         image_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+        logger.debug(f"Base64 image length: {len(image_base64)}")
         
         # Close the figure to free up memory
-        matplotlib.pyplot.close(fig)
+        plt.close(fig)
 
         # Create the component
         component = {
@@ -578,12 +622,20 @@ def matplotlib_plot(fig):
             }
         }
 
-        logger.debug(f"[MATPLOTLIB] Plot data created successfully for id {id}")
+        # Add optional title and description
+        if title:
+            component["title"] = str(title)
+        if description:
+            component["description"] = str(description)
+
+        logger.info(f"[MATPLOTLIB] Plot data created successfully for id {id}")
         service.append_component(component)
         return component
 
     except Exception as e:
-        logger.error(f"[MATPLOTLIB] Error creating plot: {str(e)}", exc_info=True)
+        logger.error(f"[MATPLOTLIB] Error creating plot: {e}")
+        logger.error(traceback.format_exc())
+        
         error_component = {
             "type": "matplotlib_plot",
             "id": id,
