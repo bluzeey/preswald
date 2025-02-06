@@ -1,9 +1,9 @@
-from setuptools import setup, find_packages, Command
-import subprocess
-import os
 import shutil
+import subprocess
 import sys
 from pathlib import Path
+
+from setuptools import Command, find_packages, setup
 
 
 class BuildFrontendCommand(Command):
@@ -120,6 +120,7 @@ CORE_DEPENDENCIES = [
     "psycopg2-binary>=2.9.10",
     "openai==1.59.7",
     "celery>=5.4.0",
+    "duckdb>=1.1.3",
 ]
 
 # Define additional dependencies for development
@@ -128,6 +129,9 @@ DEV_DEPENDENCIES = [
     "build",
     "isort",
     "twine",
+    "black>=23.12.1",
+    "ruff>=0.1.11",
+    "pre-commit>=3.5.0",
 ]
 
 setup(

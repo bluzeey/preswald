@@ -237,7 +237,13 @@ def deploy(script, target, port, log_level):
 
 @cli.command()
 @click.argument("script", default="app.py")
-def stop(script):
+@click.option(
+    "--target",
+    type=click.Choice(["local", "gcp", "aws", "structured"], case_sensitive=False),
+    default="local",
+    help="Target platform to stop the deployment from.",
+)
+def stop(script, target):
     """
     Stop the currently running deployment.
 
@@ -247,10 +253,74 @@ def stop(script):
         if not os.path.exists(script):
             click.echo(f"Error: Script '{script}' not found. ❌")
             return
-        stop_app(script)
-        click.echo("Deployment stopped successfully. 🛑 ")
+            
+        if target == "structured":
+            from preswald.deploy import stop_structured_deployment
+            try:
+                result = stop_structured_deployment(script)
+                click.echo(click.style("✅ Production deployment stopped successfully.", fg='green'))
+            except Exception as e:
+                click.echo(click.style(f"❌ {str(e)}", fg='red'))
+                sys.exit(1)
+        else:
+            stop_app(script)
+            click.echo("Deployment stopped successfully. 🛑 ")
     except Exception as e:
         click.echo(f"Error stopping deployment: {e} ❌")
+        sys.exit(1)
+
+
+@cli.command()
+def deployments():
+    """
+    Show all deployments for your Preswald app.
+    
+    This command displays information about your deployments on Structured Cloud.
+    Must be run from the directory containing your Preswald app.
+    """
+    try:
+        script = os.path.join(os.getcwd(), ".env.structured")
+        if not os.path.exists(script):
+            click.echo(click.style(f"Error: No Preswald app found in current directory. ❌", fg='red'))
+            return
+            
+        from preswald.deploy import get_structured_deployments
+        try:
+            result = get_structured_deployments(script)
+
+            # Print user info
+            user = result.get('user', {})
+            click.echo("\n" + click.style("User Information:", fg='blue', bold=True))
+            click.echo(f"Username: {user.get('username')}")
+            click.echo(f"Email: {user.get('email')}")
+            
+            # Print deployments
+            deployments = result.get('deployments', [])
+            click.echo("\n" + click.style("Deployments:", fg='blue', bold=True))
+            
+            if not deployments:
+                click.echo("No active deployments found.")
+            else:
+                for deployment in deployments:
+                    status_color = 'green' if deployment.get('isActive') else 'yellow'
+                    click.echo("\n" + click.style(f"Deployment ID: {deployment.get('id')}", bold=True))
+                    click.echo(f"App ID: {deployment.get('appId')}")
+                    click.echo(click.style(f"Status: {deployment.get('status')}", fg=status_color))
+                    click.echo(f"Created: {deployment.get('createdAt')}")
+                    click.echo(f"Last Updated: {deployment.get('updatedAt')}")
+                    click.echo(click.style(f"Active: {deployment.get('isActive')}", fg=status_color))
+            
+            # Print meta info
+            meta = result.get('meta', {})
+            click.echo("\n" + click.style("Meta Information:", fg='blue', bold=True))
+            click.echo(f"Total Deployments: {meta.get('total')}")
+            click.echo(f"Last Updated: {meta.get('timestamp')}")
+            
+        except Exception as e:
+            click.echo(click.style(f"❌ {str(e)}", fg='red'))
+            sys.exit(1)
+    except Exception as e:
+        click.echo(click.style(f"Error showing deployments: {e} ❌", fg='red'))
         sys.exit(1)
 
 
