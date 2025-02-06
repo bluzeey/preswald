@@ -534,3 +534,60 @@ def separator():
     component = {"type": "separator", "id": str(uuid.uuid4())}
     service.append_component(component)
     return component
+
+def matplotlib_plot(fig):
+    """
+    Render a Matplotlib figure as a component.
+
+    Args:
+        fig: A Matplotlib figure object
+    """
+    service = PreswaldService.get_instance()
+    try:
+        import io
+        import base64
+        import matplotlib
+
+        # Ensure we're using a non-interactive backend
+        matplotlib.use('Agg')
+
+        # Generate a unique ID for the plot
+        id = generate_id("matplotlib_plot")
+        logger.debug(f"[MATPLOTLIB] Creating plot component with id {id}")
+
+        # Create a BytesIO buffer to save the figure
+        buffer = io.BytesIO()
+        
+        # Save the figure as PNG
+        fig.savefig(buffer, format='png', bbox_inches='tight', dpi=300)
+        buffer.seek(0)
+        
+        # Encode the image to base64
+        image_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+        
+        # Close the figure to free up memory
+        matplotlib.pyplot.close(fig)
+
+        # Create the component
+        component = {
+            "type": "matplotlib_plot",
+            "id": id,
+            "data": {
+                "image": f"data:image/png;base64,{image_base64}",
+                "format": "png"
+            }
+        }
+
+        logger.debug(f"[MATPLOTLIB] Plot data created successfully for id {id}")
+        service.append_component(component)
+        return component
+
+    except Exception as e:
+        logger.error(f"[MATPLOTLIB] Error creating plot: {str(e)}", exc_info=True)
+        error_component = {
+            "type": "matplotlib_plot",
+            "id": id,
+            "error": f"Failed to create plot: {str(e)}",
+        }
+        service.append_component(error_component)
+        return error_component

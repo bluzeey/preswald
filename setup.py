@@ -120,6 +120,7 @@ CORE_DEPENDENCIES = [
     "psycopg2-binary>=2.9.10",
     "openai==1.59.7",
     "celery>=5.4.0",
+    "matplotlib==3.10.0"
 ]
 
 # Define additional dependencies for development
